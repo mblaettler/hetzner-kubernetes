@@ -1,0 +1,21 @@
+## kubernetes installation settings
+k8s_version: 1.19.8
+
+## vm types and location
+vm_location: nbg1
+vm_type: cx21
+vm_os: ubuntu-20.04 # only ubuntu images are supported
+
+## public key to be added to the nodes
+ssh_pub: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINvHtlda5ICSSKPkcniWd1g9Vk0VkL3tY97QDLYi/bXl mblaettler
+
+## worker nodes prefix
+k8s_worker_name_prefix: "k8s-worker-"
+
+## node and pod network settings
+network_name: kubenet
+network_cidr: 10.0.0.0/8
+node_subnet_cidr: 10.1.0.0/16
+pod_network_cidr: 10.2.0.0/16
+k8s_master_ip: 10.1.0.1
+k8s_worker_ip_range: "10.1.0."

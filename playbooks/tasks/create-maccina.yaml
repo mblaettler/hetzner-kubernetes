@@ -1,0 +1,28 @@
+---
+- name: Add ssh_key to HCloud
+  hcloud_ssh_key:
+    name: kubernetes-hosts-ssh-key
+    public_key: "{{ ssh_pub }}"
+- name: Create maccina
+  hcloud_server:
+    name: "{{ node_name }}"
+    location: "{{ vm_location }}"
+    server_type: "{{ vm_type }}"
+    image: "{{ vm_os }}"
+    labels:
+      k8s: "{{ node_type }}"
+    ssh_keys:
+    - kubernetes-hosts-ssh-key
+    state: present
+  register: maccina
+- name: Attach maccina to node subnet
+  hcloud_server_network:
+    server: "{{ node_name }}"
+    network: "{{ network_name }}"
+    ip: "{{ node_ip }}"
+    state: present
+- name: Wait until machine is up and running
+  wait_for:
+    port: 22
+    host: "{{ maccina.hcloud_server.ipv4_address }}"
+    delay: 10

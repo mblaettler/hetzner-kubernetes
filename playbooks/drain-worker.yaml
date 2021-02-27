@@ -1,0 +1,29 @@
+---
+- name: provision new worker node
+  vars_files:
+  - ../config/common.yaml
+  - ../config/kubernetes-config.yaml
+  vars:
+    ansible_user: root
+  hosts: cluster_k8s_master
+  tasks:
+  - name: Get highest worker node
+    local_action:
+      module: hcloud_server_info
+      label_selector: k8s=worker
+    register: current_workers
+  - name: Collect tardown node name
+    set_fact:
+      teardown_node: "{{ k8s_worker_name_prefix }}{{ current_workers.hcloud_server_info | length - 1}}"
+  - name: Drain node
+    command: "{{ item }}"
+    with_items:
+    - kubectl drain {{ teardown_node }} --ignore-daemonsets
+    - kubectl delete node {{ teardown_node }}
+    environment:
+      KUBECONFIG: /etc/kubernetes/admin.conf
+  - name: Delete server
+    local_action:
+      module: hcloud_server
+      name: "{{ teardown_node }}"
+      state: absent

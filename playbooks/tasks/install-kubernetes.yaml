@@ -1,0 +1,30 @@
+---
+- name: "Update APT cache"
+  apt:
+    update_cache: yes
+- name: "Install kubernetes requirements"
+  apt:
+    name:
+    - apt-transport-https
+- name: "Add kubernetes repository key"
+  apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+- name: "Add kubernetes repository"
+  apt_repository:
+    filename: kubernetes
+    repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+- name: "Install kubelet, kubeadm, kubectl"
+  apt:
+    name:
+    - "kubelet={{ k8s_version }}-00"
+    - "kubeadm={{ k8s_version }}-00"
+    - "kubectl={{ k8s_version }}-00"
+    update_cache: yes
+- name: "Fix versions of kubelet, kubeadm & kubectl"
+  dpkg_selections:
+    name: "{{item}}"
+    selection: hold
+  with_items:
+  - kubelet
+  - kubeadm
+  - kubectl

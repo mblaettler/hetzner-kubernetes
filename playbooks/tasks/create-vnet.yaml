@@ -1,0 +1,13 @@
+---
+- name: Create VNET for kubernetes
+  hcloud_network:
+    name: "{{ network_name }}"
+    ip_range: "{{ network_cidr }}"
+    state: present
+- name: Create subnet for nodes
+  hcloud_subnetwork:
+    network: "{{ network_name }}"
+    network_zone: eu-central
+    ip_range: "{{ node_subnet_cidr }}"
+    type: cloud
+    state: present

@@ -1,0 +1,43 @@
+---
+- name: provision kubernetes master
+  vars_files:
+  - ../config/common.yaml
+  - ../config/kubernetes-config.yaml
+  vars:
+    node_name: k8s-master
+    node_type: master
+    node_ip: "{{ k8s_master_ip }}"
+  hosts: 127.0.0.1
+  connection: local
+  tasks:
+  - include: tasks/create-vnet.yaml
+  - include: tasks/create-maccina.yaml
+  - name: Create host config to connect to newly created machine
+    add_host:
+      hostname: '{{ maccina.hcloud_server.ipv4_address }}'
+      groups:
+      - newMaster
+- name: configure master
+  vars_files:
+  - ../config/common.yaml
+  - ../config/kubernetes-config.yaml
+  vars:
+    ansible_user: root
+    node_name: k8s-master
+  hosts: newMaster
+  tasks:
+  - include: tasks/install-docker.yaml
+  - include: tasks/install-kubernetes.yaml
+  - name: Reset any previously configured cluster
+    command: kubeadm reset --force
+  - name: Initialize the Kubernetes cluster using kubeadm
+    command: kubeadm init --apiserver-advertise-address="0.0.0.0" --apiserver-cert-extra-sans="{{ k8s_master_ip }},{{ ansible_host }}" --node-name {{ node_name }} --pod-network-cidr={{ pod_network_cidr }}
+  - name: Install flannel
+    command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+    environment:
+      KUBECONFIG: /etc/kubernetes/admin.conf
+  - name: Copy configuration
+    fetch:
+      src: /etc/kubernetes/admin.conf
+      dest: ~/.kube/config
+      flat: yes

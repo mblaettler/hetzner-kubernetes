@@ -1,0 +1,60 @@
+---
+- name: provision new worker node
+  vars_files:
+  - ../config/common.yaml
+  - ../config/kubernetes-config.yaml
+  connection: local
+  hosts: 127.0.0.1
+  tasks:
+  - name: Get current number of worker nodes
+    hcloud_server_info:
+      label_selector: k8s=worker
+    register: current_workers
+  - set_fact:
+      node_name: "{{ k8s_worker_name_prefix }}{{ current_workers.hcloud_server_info | length }}"
+      node_ip: "{{ k8s_worker_ip_range }}{{ (current_workers.hcloud_server_info | length)  + 2}}"
+      node_type: "worker"
+  - include: tasks/create-vnet.yaml
+  - include: tasks/create-maccina.yaml
+  - name: Create host config to connect to newly created machine
+    add_host:
+      hostname: '{{ maccina.hcloud_server.ipv4_address }}'
+      groups:
+      - newWorker
+
+- name: get token (join command) from master
+  hosts: cluster_k8s_master
+  vars:
+    ansible_user: root
+  tasks:
+  - name: Generate token
+    command: kubeadm token create --ttl 10m --print-join-command
+    register: join_command
+  - name: Copy join command to local file
+    local_action:
+      module: copy
+      content: "{{ join_command.stdout_lines[0] }}"
+      dest: "./join-command"
+
+- name: connect worker to master
+  vars: 
+    ansible_user: root
+  vars_files:
+  - ../config/common.yaml
+  - ../config/kubernetes-config.yaml
+  hosts: newWorker
+  tasks:
+  - include: tasks/install-docker.yaml
+  - include: tasks/install-kubernetes.yaml
+  - name: Copy the join command to server location
+    copy:
+      src: ./join-command
+      dest: /tmp/join-command.sh
+      mode: 0777
+  - name: Join the node to cluster
+    command: sh /tmp/join-command.sh
+  - name: Remove join command
+    local_action:
+      module: file
+      path: ./join-command
+      state: absent
