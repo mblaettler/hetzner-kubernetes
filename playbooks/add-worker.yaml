@@ -11,6 +11,7 @@
       label_selector: k8s=worker
     register: current_workers
   - set_fact:
+      vm_type: "{{ worker_vm_type }}"
       node_name: "{{ k8s_worker_name_prefix }}{{ current_workers.hcloud_server_info | length }}"
       node_ip: "{{ k8s_worker_ip_range }}{{ (current_workers.hcloud_server_info | length)  + 2}}"
       node_type: "worker"

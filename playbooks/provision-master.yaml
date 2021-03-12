@@ -10,6 +10,8 @@
   hosts: 127.0.0.1
   connection: local
   tasks:
+  - set_fact:
+      vm_type: "{{ master_vm_type }}"
   - include: tasks/create-vnet.yaml
   - include: tasks/create-maccina.yaml
   - name: Create host config to connect to newly created machine
@@ -34,6 +36,26 @@
     command: kubeadm init --apiserver-advertise-address="0.0.0.0" --apiserver-cert-extra-sans="{{ k8s_master_ip }},{{ ansible_host }}" --node-name {{ node_name }} --pod-network-cidr={{ pod_network_cidr }}
   - name: Install flannel
     command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+    environment:
+      KUBECONFIG: /etc/kubernetes/admin.conf
+  - name: Patch flannel and coredns
+    command: kubectl -n kube-system patch ds kube-flannel-ds --type json -p '[{"op":"add","path":"/spec/template/spec/tolerations/-","value":{"key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true","effect":"NoSchedule"}}]'
+    command: kubectl -n kube-system patch deployment coredns --type json -p '[{"op":"add","path":"/spec/template/spec/tolerations/-","value":{"key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true","effect":"NoSchedule"}}]'
+    environment:
+      KUBECONFIG: /etc/kubernetes/admin.conf
+  - name: Add hcloud secret
+    command: kubectl --namespace kube-system create secret generic {{ item }} --from-literal=token={{ lookup('env', 'HCLOUD_TOKEN') }}
+    with_items:
+    - hcloud
+    - hcloud-csi
+    environment:
+      KUBECONFIG: /etc/kubernetes/admin.conf
+  - name: Add hetzner ccm & csi & dashboard
+    command: kubectl apply -f {{ item }}
+    with_items:
+    - https://raw.githubusercontent.com/hetznercloud/hcloud-cloud-controller-manager/{{ hetzner_ccm_version }}/deploy/ccm.yaml
+    - https://raw.githubusercontent.com/hetznercloud/csi-driver/{{ hetzner_csi_version }}/deploy/kubernetes/hcloud-csi.yml
+    - https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0/aio/deploy/recommended.yaml
     environment:
       KUBECONFIG: /etc/kubernetes/admin.conf
   - name: Copy configuration

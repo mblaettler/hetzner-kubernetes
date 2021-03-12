@@ -1,4 +1,17 @@
 ---
+- name: Create systemd directories
+  file:
+    path: /etc/systemd/system/kubelet.service.d
+    state: directory
+- name: Set kubelet args
+  copy:
+    dest: /etc/systemd/system/kubelet.service.d/20-hcloud.conf
+    content: |
+      [Service]
+      Environment="KUBELET_EXTRA_ARGS=--cloud-provider=external"
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
 - name: "Update APT cache"
   apt:
     update_cache: yes
@@ -28,3 +41,13 @@
   - kubelet
   - kubeadm
   - kubectl
+- name: "Enable network traffic between pods"
+  blockinfile:
+    path: /etc/sysctl.conf
+    block: |
+      # Allow IP forwarding for kubernetes
+      net.bridge.bridge-nf-call-iptables = 1
+      net.ipv4.ip_forward = 1
+      net.ipv6.conf.default.forwarding = 1
+- name: "Reload kernel configuration to apply network traffic configuration"
+  command: sysctl -p
